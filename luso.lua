@@ -17,6 +17,7 @@ function updateConfig()
 	print(pretty.write(res))
 	print("----------")
 	containers={}
+	ssl_containers={}
 
 	for a, b in ipairs(res) do
 		local rec={}
@@ -39,6 +40,8 @@ function updateConfig()
 			print(b.Labels.domain)
 			print("ha_port:")
 			print(b.Labels.ha_port)
+			print("ha_ssl:")
+			print(b.Labels.ha_ssl)
 --			print("n ports:"..#b.Ports) --should show length
 			for key, value in ipairs(b.Ports) do 
 --				print("Port:"..value.PrivatePort)
@@ -84,6 +87,14 @@ function updateConfig()
 				rec.Port = b.Labels.ha_port
 			end
 
+			if b.Labels.ha_ssl then
+				local ssl_rec={}
+				print("forcing ssl");
+				ssl_rec.Domain = rec.Domain
+				ssl_rec.Name = rec.Name
+				table.insert(ssl_containers,ssl_rec)
+			end
+
 
 --			print("IP: "..rec.IP)
 			if (rec.Port) then
@@ -95,7 +106,7 @@ function updateConfig()
 	end
 
 	haptl=file.read("./haproxy.tmpl")
-	mres = applyTemplate(haptl,{_escape='>',containers=containers,ipairs=ipairs})
+	mres = applyTemplate(haptl,{_escape='>',containers=containers,ssl_containers=ssl_containers,ipairs=ipairs})
 	--use diff? no write read access needed if there is nochange
 	file.copy("./haproxy.cfg","./haproxy.cfg.old")
 	file.write("./haproxy.cfg",mres)
@@ -151,7 +162,10 @@ function sleep(sec)
 	return os.execute("sleep "..sec)
 end
 
+
 print ("starting hautoproxy...")
+cmd="haproxy -D -f ./haproxy.cfg"
+os.execute(cmd)
 repeat
 	updateConfig()
 

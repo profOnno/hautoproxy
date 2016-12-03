@@ -32,30 +32,41 @@ frontend fe_http
 
 	bind *:443 ssl crt-list /etc/haproxy/cert-list.txt
 
-	#acl HAS_SSL ssl_fc
+#	http-request redirect scheme https if { hdr_sub(Host) -i git.kuopzi.nl  } !{ ssl_fc }
+
+# template ssl
+> for i,c in ipairs(ssl_containers) do
+	http-request redirect scheme https if { hdr_sub(host) -i $(c.Name).$(c.Domain) } !{ ssl_fc }
+> end
+# end template
+
 	#redirect scheme https if !{ ssl_fc }
-	#reqadd X-Forwarderd-Proto:\ https if HAS_SSL
-	
+
+	# add tag so backend knows we termintated the SSL
+	acl HAS_SSL ssl_fc
+	reqadd X-Forwarderd-Proto:\ https if HAS_SSL
 	
 #       acl app_letsencrypt path_beg /.well-known/acme-challenge/
         acl is_test hdr(host) -i test.pump.ninja
         #acl is_git hdr(host) -i git.kuopzi.nl
         acl is_hello hdr(host) -i hello.pump.ninja
 
-# template
+# template SNI test
 > for i,c in ipairs(containers) do
 	acl is_$(c.Name) hdr_sub(host) -i $(c.Name).$(c.Domain)
 > end
+# end template
 
 #       use_backend be_letsencrypt if app_letsencrypt
         use_backend be_test if is_test
         use_backend be_hello if is_hello
         #use_backend be_git if is_git
 	
-# template
+# template select backend
 > for i,c in ipairs(containers) do
 	use_backend be_$(c.Name) if is_$(c.Name)
 > end
+# end template
 
 #frontend fe_https
 #       log global
@@ -84,9 +95,10 @@ backend be_hello
         mode http
 	http-request use-service lua.hello
 
-# template
+# template backends
 > for i,c in ipairs(containers) do
 backend be_$(c.Name)
 	mode http
 	server server1 $(c.IP):$(c.Port)
 > end
+# end template
