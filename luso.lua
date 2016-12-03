@@ -27,9 +27,6 @@ function updateConfig()
 --		print(rec.Name)
 		--print("n ports:"..#b.Ports) --should show length
 
-		--table.foreach(b.Ports, function(k,v)print( v.PrivatePort)end);
-		--if hasPort80(b.Ports) then print(rec.Name.." yup") else print(rec.Name.." nup") end
-		--if hasPort80(b.Ports) then
 		if b.Labels.hautoproxy then
 --			print("Labels :")
 			print("hautoproxy:")
@@ -137,20 +134,6 @@ function getIP(name)
 	--print(pretty.write(res.NetworkSettings.IPAddress))
 	return res.NetworkSettings.IPAddress
 end
-
-function hasPort80(tab)
-	local got80 = false
-	--table.foreach(tab, function(v,k)
-	for v,k in ipairs(tab) do
-		if(k.PrivatePort == 80) then 
-			--print("got one")
-			got80 = true
-			break
-		end
-	end
-	return got80
-end
-
 
 function HAProxyNeedsUpdate()
 	-- first parm is true if exec true...
