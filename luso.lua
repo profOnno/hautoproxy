@@ -1,11 +1,6 @@
 #!/usr/bin/env lua5.3
---socket = require "socket"
--- socket.unix = require "socket.unix"
 
---c = assert(socket.unix());
---assert(c:connect("/var/run/docker.sock"))
 require "pl"
---http = require("socket.http")
 unixHTTP= require("usock")
 assert(unixHTTP)
 json = require("cjson")
@@ -19,8 +14,8 @@ function updateConfig()
 	-- print("b",b)
 	res = json.decode(b)
 	-- for key, val in pairs(res) do print (key, val) end
-	print(pretty.write(res))
-	print("----------")
+	-- print(pretty.write(res))
+	-- print("----------")
 	containers={}
 
 	for a, b in ipairs(res) do
@@ -28,20 +23,20 @@ function updateConfig()
 		rec.Id=b.Id
 		--strip front slash
 		rec.Name=string.sub(b.Names[1],2,-1)
-		print(rec.Name)
+--		print(rec.Name)
 		--print("n ports:"..#b.Ports) --should show length
 
 		--table.foreach(b.Ports, function(k,v)print( v.PrivatePort)end);
 		--if hasPort80(b.Ports) then print(rec.Name.." yup") else print(rec.Name.." nup") end
 		--if hasPort80(b.Ports) then
 		if b.Labels.hautoproxy then
-			print("Labels :")
-			print("hautoproxy:")
-			print(b.Labels.hautoproxy)
-			print("cname:")
-			print(b.Labels.cname)
-			print("domain:")
-			print(b.Labels.domain)
+--			print("Labels :")
+--			print("hautoproxy:")
+--			print(b.Labels.hautoproxy)
+--			print("cname:")
+--			print(b.Labels.cname)
+--			print("domain:")
+--			print(b.Labels.domain)
 			
 			if b.Labels.domain then
 				rec.Domain = b.Labels.domain
@@ -50,47 +45,33 @@ function updateConfig()
 				rec.Domain = os.getenv("HA_DOMAIN")
 			end
 
-			print("n ports:"..#b.Ports) --should show length
+--			print("n ports:"..#b.Ports) --should show length
 			for key, value in ipairs(b.Ports) do 
-				print("Port:"..value.PrivatePort)
+--				print("Port:"..value.PrivatePort)
 				if value.PrivatePort == 80 then
-					print("got port 80")
+--					print("got port 80")
 					-- we use SSL termination in haproxy
 					rec.Port = 80
 				elseif value.PrivatePort == 433 then
-					print("got port 433")
+--					print("got port 433")
 					-- we use SSL termination in haproxy so this is kind double...
 					-- maybe use haproxy ssl through mode
 					rec.Port = 443
+				-- for testing
+				elseif value.PrivatePort == 8080 then
+--					print("got port 8080")
+					rec.Port = 8080
 				end
 			end
 			
 			rec.IP=getIP(rec.Name)
-			print("IP: "..rec.IP)
+--			print("IP: "..rec.IP)
 			if (rec.Port) then
-				print("inserting container")
+--				print("inserting container")
+--				print("")
 				table.insert(containers,rec)
 			end
-
 		end
-		
-		if hasEnvHautoproxy(rec.Name) then
-			--rec.IP=b.Ports[1].IP
-			--if hasEnvHautoproxy(rec.Name) then print("got hauto") else print("NO hauto") end
-			rec.IP=getIP(rec.Name)
-			print("got IP:"..rec.IP)
-			-- needs more love
-			--rec.PrivatePort=80 --b.Ports[1].PrivatePort
-		end
-		--print("rec.Name:",rec.Name)
-		--print("rec.PrivatePort:",rec.PrivatePort)
-		--print("--")
-		--if rec.Port then
-			--table.foreach(rec, print)
-		--	for k, v in ipairs(rec) do print(v) end
-		--	print("inserting container")
-		--	table.insert(containers,rec)
-		--end
 	end
 
 	haptl=file.read("./haproxy.tmpl")
@@ -105,15 +86,16 @@ function restartHAProxy()
 	--note: there is a 'zero downtime version to restart haproxy'
 	--http://engineeringblog.yelp.com/2015/04/true-zero-downtime-haproxy-reloads.html
 	
-	if os.execute("test -e /tmp/haproxy.pid") > 0 then
-		cmd="haproxy -f ./haproxy.cfg -p /tmp/haproxy.pid"
-		os.execute(cmd)
-	else
-		pid=file.read("/tmp/haproxy.pid")
-
-		cmd="haproxy -f ./haproxy.cfg -p /tmp/haproxy.pid -sf "..pid
+	--if os.execute("test -e /tmp/haproxy.pid") > 0 then
+	if path.isfile("/var/run/haproxy.pid") then
+		print("restarting")
+		pid=file.read("/var/run/haproxy.pid")
+		cmd="haproxy -D -f ./haproxy.cfg -sf "..pid
 		os.execute(cmd);
-		--os.execute(cmd);
+	else
+		print ("dont have /var/run/haproxy.pid")
+		cmd="haproxy -D -f ./haproxy.cfg"
+		os.execute(cmd)
 	end
 end
 
@@ -138,61 +120,29 @@ function hasPort80(tab)
 	return got80
 end
 
-function hasEnvHautoproxy(name)
-	local gotHauto = false
-
-	h, b = unixHttp.request("/containers/"..name.."/json")
-	--print("b",b)
-	res = json.decode(b)
-	if res.Config.Env then
-		for k,item in ipairs(res.Config.Env) do
-			if string.find(item,"HAUTOPROXY") and string.find(item,"true") then
-				gotHauto = true
-			--	print("Env: "..item);
-			end	
-		end
-	end
-	return gotHauto
-
-end
-
-function hasLabelHautoproxy(name)
-	local gotHauto = false
-
-	h, b = unixHttp.request("/containers/"..name.."/json")
-	--print("b",b)
-	res = json.decode(b)
-	if res.Config.Env then
-		for k,item in ipairs(res.Config.Env) do
-			if string.find(item,"HAUTOPROXY") and string.find(item,"true") then
-				gotHauto = true
-			--	print("Env: "..item);
-			end	
-		end
-	end
-	return gotHauto
-
-end
 
 function HAProxyNeedsUpdate()
-	return os.execute("diff ./haproxy.cfg ./haproxy.cfg.old > /dev/null") ~= 0
+	-- first parm is true if exec true...
+	-- nodifference is true
+	return not os.execute("diff ./haproxy.cfg ./haproxy.cfg.old > /dev/null")
 end
 
 function sleep(sec)
-	return os.execute("sleep "..sec) == 0
+	return os.execute("sleep "..sec)
 end
 
+print ("starting hautoproxy...")
 repeat
 	updateConfig()
 
 	if HAProxyNeedsUpdate() then
 		print("Updating HAProxy")
-		-- ENABLE TODO restartHAProxy()
+		restartHAProxy()
 	end
 	if not sleep(15) then
 		--sigint ?
 		os.exit(1)
 	end
---	print("tick..")
+	print("tick..")
 until false 
 

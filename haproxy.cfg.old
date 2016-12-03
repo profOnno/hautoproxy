@@ -1,5 +1,6 @@
 global
         chroot /var/lib/haproxy
+	pidfile /var/run/haproxy.pid
 #       user haproxy
 #       group haproxy
 #       daemon
@@ -24,18 +25,18 @@ frontend fe_http
         mode http
         option httplog
 #       bind PUBLIC_HAPROXY_IP:80
-        bind *:80
+        bind *:8080
 
 	acl url_acme_http01 path_beg /.well-known/acme-challenge/
      	http-request use-service lua.acme-http01 if METH_GET url_acme_http01
 
 	#bind *:443 ssl crt /etc/haproxy/certs.d ciphers ECDHE-RSA-AES256-SHA:RC4-SHA:RC4:HIGH:!MD5:!aNULL:!EDH:!AESGCM no-sslv3
 #	bind *:443 ssl crt /etc/haproxy/certs.d
-	bind *:443 ssl crt-list /etc/haproxy/cert-list.txt
+#	bind *:443 ssl crt-list /etc/haproxy/cert-list.txt
 
-	acl HAS_SSL ssl_fc
-	redirect scheme https if !{ ssl_fc }
-	reqadd X-Forwarderd-Proto:\ https if HAS_SSL
+	#acl HAS_SSL ssl_fc
+	#redirect scheme https if !{ ssl_fc }
+	#reqadd X-Forwarderd-Proto:\ https if HAS_SSL
 	
 	
 #       acl app_letsencrypt path_beg /.well-known/acme-challenge/
@@ -44,8 +45,8 @@ frontend fe_http
         acl is_hello hdr(host) -i hello.pump.ninja
 
 # template
-	acl is_desperate_wing hdr(host) -i desperate_wing.kuopzi.nl
-	acl is_reverent_wozniak hdr(host) -i reverent_wozniak.pump.ninja
+	acl is_thirsty_engelbart hdr_sub(host) -i thirsty_engelbart.pump.ninja
+	acl is_prickly_galileo hdr_sub(host) -i prickly_galileo.kuopzi.nl
 
 #       use_backend be_letsencrypt if app_letsencrypt
         use_backend be_test if is_test
@@ -53,8 +54,8 @@ frontend fe_http
         use_backend be_git if is_git
 	
 # template
-	use_backend be_desperate_wing if is_desperate_wing
-	use_backend be_reverent_wozniak if is_reverent_wozniak
+	use_backend be_thirsty_engelbart if is_thirsty_engelbart
+	use_backend be_prickly_galileo if is_prickly_galileo
 
 #frontend fe_https
 #       log global
@@ -85,9 +86,9 @@ backend be_hello
 	http-request use-service lua.hello
 
 # template
-backend be_desperate_wing
+backend be_thirsty_engelbart
 	mode http
-	server server1 172.17.0.9:80
-backend be_reverent_wozniak
+	server server1 172.17.0.9:8080
+backend be_prickly_galileo
 	mode http
-	server server1 172.17.0.8:80
+	server server1 172.17.0.6:80
