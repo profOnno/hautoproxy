@@ -24,14 +24,14 @@ frontend fe_http
         mode http
         option httplog
 #       bind PUBLIC_HAPROXY_IP:80
-        bind *:8080
+        bind *:80
 
 	acl url_acme_http01 path_beg /.well-known/acme-challenge/
      	http-request use-service lua.acme-http01 if METH_GET url_acme_http01
 
 	#bind *:443 ssl crt /etc/haproxy/certs.d ciphers ECDHE-RSA-AES256-SHA:RC4-SHA:RC4:HIGH:!MD5:!aNULL:!EDH:!AESGCM no-sslv3
 #	bind *:443 ssl crt /etc/haproxy/certs.d
-#	bind *:443 ssl crt-list /etc/haproxy/cert-list.txt
+	bind *:443 ssl crt-list /etc/haproxy/cert-list.txt
 
 	acl HAS_SSL ssl_fc
 	redirect scheme https if !{ ssl_fc }
@@ -43,18 +43,11 @@ frontend fe_http
         acl is_git hdr(host) -i git.kuopzi.nl
         acl is_hello hdr(host) -i hello.pump.ninja
 
-# template
-	acl is_desperate_wing hdr(host) -i desperate_wing.kuopzi.nl
-	acl is_reverent_wozniak hdr(host) -i reverent_wozniak.pump.ninja
-
 #       use_backend be_letsencrypt if app_letsencrypt
         use_backend be_test if is_test
         use_backend be_hello if is_hello
         use_backend be_git if is_git
 	
-# template
-	use_backend be_desperate_wing if is_desperate_wing
-	use_backend be_reverent_wozniak if is_reverent_wozniak
 
 #frontend fe_https
 #       log global
@@ -83,11 +76,3 @@ backend be_git
 backend be_hello
         mode http
 	http-request use-service lua.hello
-
-# template
-backend be_desperate_wing
-	mode http
-	server server1 172.17.0.9:80
-backend be_reverent_wozniak
-	mode http
-	server server1 172.17.0.8:80

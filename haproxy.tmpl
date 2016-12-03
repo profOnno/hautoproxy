@@ -44,8 +44,9 @@ frontend fe_http
         acl is_hello hdr(host) -i hello.pump.ninja
 
 # template
-	acl is_desperate_wing hdr(host) -i desperate_wing.kuopzi.nl
-	acl is_reverent_wozniak hdr(host) -i reverent_wozniak.pump.ninja
+> for i,c in ipairs(containers) do
+	acl is_$(c.Name) hdr(host) -i $(c.Name).$(c.Domain)
+> end
 
 #       use_backend be_letsencrypt if app_letsencrypt
         use_backend be_test if is_test
@@ -53,8 +54,9 @@ frontend fe_http
         use_backend be_git if is_git
 	
 # template
-	use_backend be_desperate_wing if is_desperate_wing
-	use_backend be_reverent_wozniak if is_reverent_wozniak
+> for i,c in ipairs(containers) do
+	use_backend be_$(c.Name) if is_$(c.Name)
+> end
 
 #frontend fe_https
 #       log global
@@ -85,9 +87,8 @@ backend be_hello
 	http-request use-service lua.hello
 
 # template
-backend be_desperate_wing
+> for i,c in ipairs(containers) do
+backend be_$(c.Name)
 	mode http
-	server server1 172.17.0.9:80
-backend be_reverent_wozniak
-	mode http
-	server server1 172.17.0.8:80
+	server server1 $(c.IP):$(c.Port)
+> end
