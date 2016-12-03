@@ -25,14 +25,12 @@ frontend fe_http
         mode http
         option httplog
 #       bind PUBLIC_HAPROXY_IP:80
-        bind *:8080
+        bind *:80
 
 	acl url_acme_http01 path_beg /.well-known/acme-challenge/
      	http-request use-service lua.acme-http01 if METH_GET url_acme_http01
 
-	#bind *:443 ssl crt /etc/haproxy/certs.d ciphers ECDHE-RSA-AES256-SHA:RC4-SHA:RC4:HIGH:!MD5:!aNULL:!EDH:!AESGCM no-sslv3
-#	bind *:443 ssl crt /etc/haproxy/certs.d
-#	bind *:443 ssl crt-list /etc/haproxy/cert-list.txt
+	bind *:443 ssl crt-list /etc/haproxy/cert-list.txt
 
 	#acl HAS_SSL ssl_fc
 	#redirect scheme https if !{ ssl_fc }
@@ -41,7 +39,7 @@ frontend fe_http
 	
 #       acl app_letsencrypt path_beg /.well-known/acme-challenge/
         acl is_test hdr(host) -i test.pump.ninja
-        acl is_git hdr(host) -i git.kuopzi.nl
+        #acl is_git hdr(host) -i git.kuopzi.nl
         acl is_hello hdr(host) -i hello.pump.ninja
 
 # template
@@ -52,7 +50,7 @@ frontend fe_http
 #       use_backend be_letsencrypt if app_letsencrypt
         use_backend be_test if is_test
         use_backend be_hello if is_hello
-        use_backend be_git if is_git
+        #use_backend be_git if is_git
 	
 # template
 > for i,c in ipairs(containers) do
@@ -78,10 +76,9 @@ backend be_test
         mode http
 	server d_test 172.17.0.3:8080
 
-backend be_git
-        mode http
-	#server d_git 172.17.0.4:80
-	server d_git 172.17.0.3:3000
+#backend be_git
+#        mode http
+#	server d_git 172.17.0.3:3000
 
 backend be_hello
         mode http

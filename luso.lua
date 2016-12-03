@@ -14,8 +14,8 @@ function updateConfig()
 	-- print("b",b)
 	res = json.decode(b)
 	-- for key, val in pairs(res) do print (key, val) end
-	-- print(pretty.write(res))
-	-- print("----------")
+	print(pretty.write(res))
+	print("----------")
 	containers={}
 
 	for a, b in ipairs(res) do
@@ -31,20 +31,14 @@ function updateConfig()
 		--if hasPort80(b.Ports) then
 		if b.Labels.hautoproxy then
 --			print("Labels :")
---			print("hautoproxy:")
---			print(b.Labels.hautoproxy)
---			print("cname:")
---			print(b.Labels.cname)
---			print("domain:")
---			print(b.Labels.domain)
-			
-			if b.Labels.domain then
-				rec.Domain = b.Labels.domain
-			else
-				-- rec.Domain = "pump.ninja"
-				rec.Domain = os.getenv("HA_DOMAIN")
-			end
-
+			print("hautoproxy:")
+			print(b.Labels.hautoproxy)
+			print("cname:")
+			print(b.Labels.cname)
+			print("domain:")
+			print(b.Labels.domain)
+			print("ha_port:")
+			print(b.Labels.ha_port)
 --			print("n ports:"..#b.Ports) --should show length
 			for key, value in ipairs(b.Ports) do 
 --				print("Port:"..value.PrivatePort)
@@ -58,13 +52,39 @@ function updateConfig()
 					-- maybe use haproxy ssl through mode
 					rec.Port = 443
 				-- for testing
+				elseif value.PrivatePort == 3000 then
+--					print("got port 8080")
+					rec.Port = 3000
 				elseif value.PrivatePort == 8080 then
 --					print("got port 8080")
 					rec.Port = 8080
 				end
 			end
+
 			
 			rec.IP=getIP(rec.Name)
+
+			-- do this after we got ip by name
+			if b.Labels.cname then
+				print("usinging cname: "..b.Labels.cname)
+				rec.Name=b.Labels.cname
+			end
+			
+			if b.Labels.domain then
+				print("special domain: " .. b.Labels.domain);
+				rec.Domain = b.Labels.domain
+			else
+				-- rec.Domain = "pump.ninja"
+				print("use default domain");
+				rec.Domain = os.getenv("HA_DOMAIN")
+			end
+
+			if b.Labels.ha_port then
+				print("using local port: "..b.Labels.ha_port)
+				rec.Port = b.Labels.ha_port
+			end
+
+
 --			print("IP: "..rec.IP)
 			if (rec.Port) then
 --				print("inserting container")
