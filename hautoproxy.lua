@@ -1,15 +1,15 @@
 #!/usr/bin/env lua5.3
 
 require "pl"
-unixHTTP= require("lib/usock")
-assert(unixHTTP)
-json = require("cjson")
-assert(json)
+unixHTTP = assert(require("lib/usock"))
+json = assert(require("cjson"))
+log = assert(require("lib/log"))
 applyTemplate = require "pl.template".substitute
 
-function printif(str, arg)
+function logif(str, arg)
 	if (arg) then
-		print (str .. arg)
+	--	print (str .. arg)
+		log.trace(str .. arg)
 	end
 end
 
@@ -30,16 +30,16 @@ function updateConfig()
 		rec.Id=b.Id
 		--strip front slash
 		rec.Name=string.sub(b.Names[1],2,-1)
-		print("\n--- " .. rec.Name .. " ---")
+		log.debug("container name: " .. rec.Name)
 		--print("n ports:"..#b.Ports) --should show length
 
 		if b.Labels.hautoproxy then
 --			print("Labels :")
-			printif("hautoproxy: ", b.Labels.hautoproxy)
-			printif("cname: ", b.Labels.cname)
-			printif("domain: ", b.Labels.domain)
-			printif("ha_port: ", b.Labels.ha_port)
-			printif("ha_ssl: ",b.Labels.ha_ssl)
+			logif("hautoproxy: ", b.Labels.hautoproxy)
+			logif("cname: ", b.Labels.cname)
+			logif("domain: ", b.Labels.domain)
+			logif("ha_port: ", b.Labels.ha_port)
+			logif("ha_ssl: ",b.Labels.ha_ssl)
 --			print("n ports:"..#b.Ports) --should show length
 			for key, value in ipairs(b.Ports) do 
 --				print("Port:"..value.PrivatePort)
@@ -67,27 +67,27 @@ function updateConfig()
 
 			-- do this after we got ip by name
 			if b.Labels.cname then
-				print("usinging cname: "..b.Labels.cname)
+				log.trace("usinging cname: "..b.Labels.cname)
 				rec.Name=b.Labels.cname
 			end
 			
 			if b.Labels.domain then
-				print("special domain: " .. b.Labels.domain);
+				log.trace("special domain: " .. b.Labels.domain);
 				rec.Domain = b.Labels.domain
 			else
 				-- rec.Domain = "pump.ninja"
-				print("use default domain");
+				log.trace("use default domain");
 				rec.Domain = os.getenv("HA_DOMAIN")
 			end
 
 			if b.Labels.ha_port then
-				print("using local port: "..b.Labels.ha_port)
+				log.trace("using local port: "..b.Labels.ha_port)
 				rec.Port = b.Labels.ha_port
 			end
 
 			if b.Labels.ha_ssl then
 				local ssl_rec={}
-				print("forcing ssl");
+				log.trace("forcing ssl");
 				ssl_rec.Domain = rec.Domain
 				ssl_rec.Name = rec.Name
 				table.insert(ssl_containers,ssl_rec)
@@ -117,12 +117,12 @@ function restartHAProxy()
 	
 	--if os.execute("test -e /tmp/haproxy.pid") > 0 then
 	if path.isfile("/var/run/haproxy.pid") then
-		print("restarting")
+		log.info("Restarting")
 		pid=file.read("/var/run/haproxy.pid")
 		cmd="haproxy -D -f ./haproxy.cfg -sf "..pid
 		os.execute(cmd);
 	else
-		print ("dont have /var/run/haproxy.pid")
+		log.warn("dont have /var/run/haproxy.pid")
 		cmd="haproxy -D -f ./haproxy.cfg"
 		os.execute(cmd)
 	end
@@ -150,21 +150,23 @@ function startupCheck()
 	-- test if /var/run/docker.sock is there
 	-- use file or docker interface?
 
-	print "Startup check..."
+	log.info("Startup check...")
 
-	io.write ("Test for /var/run/docker.sock ... ")
+	-- io.write ("Test for /var/run/docker.sock ... ")
+	log.info ("Test for /var/run/docker.sock... ")
 	-- if path.isfile("/var/run/docker.sock") then
 	if path.exists("/var/run/docker.sock") then
-		print "OK"
+		log.info("OK")
 	else
-		print "FAIL"
-		print ("Error: /var/run/docker.sock is missing")
-		print ("Start container with -v /var/run/docker.sock:/var/run/docker.sock:ro")
+		log.fatal("FAIL")
+		log.fatal("Error: /var/run/docker.sock is missing")
+		log.info("Start container with -v /var/run/docker.sock:/var/run/docker.sock:ro")
 		os.exit(1)
 	end
 
 	-- TODO check read only
-	io.write ("Test if /var/run/docker.sock is read only... ")
+	--io.write ("Test if /var/run/docker.sock is read only... ")
+	log.info("Test if /var/run/docker.sock is read only... ")
 	
 	-- get my stats
 	local fp = io.popen('cat /proc/self/cgroup | grep name | sed "'..[[s/^.*docker\///]]..'"','r')
@@ -185,31 +187,37 @@ function startupCheck()
 --			print "got the Destination"
 --			print ("mode: " .. v.Mode)
 			if not (v.Mode == "ro") then
-				print "FAIL"
-				print "Error: /var/run/docker.sock not mounted read only"
-				print "Don't forget to append :ro to your volumes"
+				log.fatal("FAIL")
+				log.fatal("Error: /var/run/docker.sock not mounted read only")
+				log.info("Don't forget to append :ro to your volumes")
 				os.exit(1)
 			else
-				print "OK"
+				log.info("OK")
 			end
 		end
 	end
 
 	if not gotSock then
-		print ("Can't find /var/run/docker.sock in Mounts")
-		print ("Start container with -v /var/run/docker.sock:/var/run/docker.sock:ro")
+		log.fatal("Can't find /var/run/docker.sock in Mounts")
+		log.info("Start container with -v /var/run/docker.sock:/var/run/docker.sock:ro")
 		os.exit(1)
-		exit(1)
 	end
 
+	-- test if haproxy exists -- TODO
+	
 --	print(pretty.write(res.Mounts[1]))
-	print "" -- new line
+	log.info("") -- new line
 end
 
 function main()
+	log.level=os.getenv("HA_LOGLEVEL")
+	if not log.level then 
+		log.level = "info"
+	end
+
 	startupCheck()
 
-	print ("Starting hautoproxy...")
+	log.info("Starting hautoproxy...")
 
 	cmd="haproxy -D -f ./haproxy.cfg"
 	os.execute(cmd)
@@ -217,7 +225,7 @@ function main()
 		updateConfig()
 
 		if HAProxyNeedsUpdate() then
-			print("Updating HAProxy")
+			log.debug("Updating HAProxy")
 			restartHAProxy()
 		end
 		if not sleep(15) then
@@ -225,8 +233,7 @@ function main()
 			os.exit(1)
 		end
 		-- print("tick..")
-		print("=====================")
-		print("") -- newline
+		log.debug("") -- newline
 	until false 
 end
 
