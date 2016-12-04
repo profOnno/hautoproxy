@@ -1,5 +1,5 @@
 #!/usr/bin/env lua5.3
-require "usock"
+require "../lib/usock"
 if (#arg < 1) then
 	print("Argument needed, like '/containers/json'")
 	os.exit(1)
