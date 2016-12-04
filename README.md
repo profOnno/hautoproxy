@@ -2,7 +2,8 @@
 
 HAProxy for docker with auto adding containers to cname (SNI) host. Can use with Letsencrypt. Work In Progress..
 
-## /util/doget.lua
+## Util
+### /util/doget.lua
 
 `util/doget.lua /containers/json` will do a http request on `/var/run/docker.sock` ane return json data.
 Use the `jq` command to filter the result. 
