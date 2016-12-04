@@ -7,6 +7,12 @@ json = require("cjson")
 assert(json)
 applyTemplate = require "pl.template".substitute
 
+function printif(str, arg)
+	if (arg) then
+		print (str .. arg)
+	end
+end
+
 function updateConfig()
 	-- Get running containers
 	--b, c, h = http.request("http://localhost:8080/containers/json")
@@ -14,8 +20,8 @@ function updateConfig()
 	-- print("b",b)
 	res = json.decode(b)
 	-- for key, val in pairs(res) do print (key, val) end
-	print(pretty.write(res))
-	print("----------")
+	-- print(pretty.write(res))
+	-- print("----------")
 	containers={}
 	ssl_containers={}
 
@@ -24,21 +30,16 @@ function updateConfig()
 		rec.Id=b.Id
 		--strip front slash
 		rec.Name=string.sub(b.Names[1],2,-1)
---		print(rec.Name)
+		print("\n--- " .. rec.Name .. " ---")
 		--print("n ports:"..#b.Ports) --should show length
 
 		if b.Labels.hautoproxy then
 --			print("Labels :")
-			print("hautoproxy:")
-			print(b.Labels.hautoproxy)
-			print("cname:")
-			print(b.Labels.cname)
-			print("domain:")
-			print(b.Labels.domain)
-			print("ha_port:")
-			print(b.Labels.ha_port)
-			print("ha_ssl:")
-			print(b.Labels.ha_ssl)
+			printif("hautoproxy: ", b.Labels.hautoproxy)
+			printif("cname: ", b.Labels.cname)
+			printif("domain: ", b.Labels.domain)
+			printif("ha_port: ", b.Labels.ha_port)
+			printif("ha_ssl: ",b.Labels.ha_ssl)
 --			print("n ports:"..#b.Ports) --should show length
 			for key, value in ipairs(b.Ports) do 
 --				print("Port:"..value.PrivatePort)
@@ -145,21 +146,88 @@ function sleep(sec)
 	return os.execute("sleep "..sec)
 end
 
+function startupCheck()
+	-- test if /var/run/docker.sock is there
+	-- use file or docker interface?
 
-print ("starting hautoproxy...")
-cmd="haproxy -D -f ./haproxy.cfg"
-os.execute(cmd)
-repeat
-	updateConfig()
+	print "Startup check..."
 
-	if HAProxyNeedsUpdate() then
-		print("Updating HAProxy")
-		restartHAProxy()
-	end
-	if not sleep(15) then
-		--sigint ?
+	io.write ("Test for /var/run/docker.sock ... ")
+	-- if path.isfile("/var/run/docker.sock") then
+	if path.exists("/var/run/docker.sock") then
+		print "OK"
+	else
+		print "FAIL"
+		print ("Error: /var/run/docker.sock is missing")
+		print ("Start container with -v /var/run/docker.sock:/var/run/docker.sock:ro")
 		os.exit(1)
 	end
-	print("tick..")
-until false 
 
+	-- TODO check read only
+	io.write ("Test if /var/run/docker.sock is read only... ")
+	
+	-- get my stats
+	local fp = io.popen('cat /proc/self/cgroup | grep name | sed "'..[[s/^.*docker\///]]..'"','r')
+	local myid = fp.read(fp) -- TODO fixme... examples don't use a fp but '*a' or '*all'
+	fp.close()
+
+--	print(myid)
+
+	h, b = unixHttp.request("/containers/"..myid.."/json")
+	--print("b",b)
+	res = json.decode(b)
+
+	local gotSock = false
+	
+	for k,v in ipairs(res.Mounts) do
+		if v.Destination == "/var/run/docker.sock" then
+			gotSock = true
+--			print "got the Destination"
+--			print ("mode: " .. v.Mode)
+			if not (v.Mode == "ro") then
+				print "FAIL"
+				print "Error: /var/run/docker.sock not mounted read only"
+				print "Don't forget to append :ro to your volumes"
+				os.exit(1)
+			else
+				print "OK"
+			end
+		end
+	end
+
+	if not gotSock then
+		print ("Can't find /var/run/docker.sock in Mounts")
+		print ("Start container with -v /var/run/docker.sock:/var/run/docker.sock:ro")
+		os.exit(1)
+		exit(1)
+	end
+
+--	print(pretty.write(res.Mounts[1]))
+	print "" -- new line
+end
+
+function main()
+	startupCheck()
+
+	print ("Starting hautoproxy...")
+
+	cmd="haproxy -D -f ./haproxy.cfg"
+	os.execute(cmd)
+	repeat
+		updateConfig()
+
+		if HAProxyNeedsUpdate() then
+			print("Updating HAProxy")
+			restartHAProxy()
+		end
+		if not sleep(15) then
+			--sigint ?
+			os.exit(1)
+		end
+		-- print("tick..")
+		print("=====================")
+		print("") -- newline
+	until false 
+end
+
+main()
