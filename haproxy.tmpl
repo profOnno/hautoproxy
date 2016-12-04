@@ -24,7 +24,6 @@ frontend fe_http
 	log 127.0.0.1 local0 debug
         mode http
         option httplog
-#       bind PUBLIC_HAPROXY_IP:80
         bind *:80
 
 	acl url_acme_http01 path_beg /.well-known/acme-challenge/
@@ -32,23 +31,15 @@ frontend fe_http
 
 	bind *:443 ssl crt-list /etc/haproxy/cert-list.txt
 
-#	http-request redirect scheme https if { hdr_sub(Host) -i git.kuopzi.nl  } !{ ssl_fc }
-
 # template ssl
 > for i,c in ipairs(ssl_containers) do
 	http-request redirect scheme https if { hdr_sub(host) -i $(c.Name).$(c.Domain) } !{ ssl_fc }
 > end
 # end template
 
-	#redirect scheme https if !{ ssl_fc }
-
-	# add tag so backend knows we termintated the SSL
+# add tag so backend knows we termintated the SSL
 	acl HAS_SSL ssl_fc
 	reqadd X-Forwarderd-Proto:\ https if HAS_SSL
-	
-#       acl app_letsencrypt path_beg /.well-known/acme-challenge/
-        acl is_test hdr(host) -i test.pump.ninja
-#        acl is_hello hdr(host) -i hello.pump.ninja
 
 # template SNI test
 > for i,c in ipairs(containers) do
@@ -56,44 +47,11 @@ frontend fe_http
 > end
 # end template
 
-#       use_backend be_letsencrypt if app_letsencrypt
-        use_backend be_test if is_test
-#        use_backend be_hello if is_hello
-        #use_backend be_git if is_git
-	
 # template select backend
 > for i,c in ipairs(containers) do
 	use_backend be_$(c.Name) if is_$(c.Name)
 > end
 # end template
-
-#frontend fe_https
-#       log global
-#       mode http
-#       option httplog
-#       bind 0.0.0.0:443 ssl crt /etc/haproxy/ssl/
-
-#       tcp-request inspect-delay 5s
-#       tcp-request content accept if { req.ssl_hello_type 1 }
-
-backend be_letsencrypt
-        log global
-        mode http
-        option httplog
-        server srv_letsencrypt 127.0.0.1:63443
-
-backend be_test
-        mode http
-	server d_test 172.17.0.3:8080
-
-#backend be_git
-#        mode http
-#	server d_git 172.17.0.3:3000
-
-#backend be_hello
-#        mode http
-#	http-request use-service lua.hello
-
 
 # template backends
 > for i,c in ipairs(containers) do
