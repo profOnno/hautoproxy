@@ -1,7 +1,7 @@
 #!/usr/bin/env lua5.3
 
 require "pl"
-unixHTTP= require("usock")
+unixHTTP= require("lib/usock")
 assert(unixHTTP)
 json = require("cjson")
 assert(json)
