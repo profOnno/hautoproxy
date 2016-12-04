@@ -4,7 +4,7 @@ global
 #       user haproxy
 #       group haproxy
 #       daemon
-        lua-load hello.lua
+#        lua-load hello.lua
 	lua-load acme-http01-webroot.lua
 	
 	ssl-default-bind-options no-sslv3
@@ -48,8 +48,7 @@ frontend fe_http
 	
 #       acl app_letsencrypt path_beg /.well-known/acme-challenge/
         acl is_test hdr(host) -i test.pump.ninja
-        #acl is_git hdr(host) -i git.kuopzi.nl
-        acl is_hello hdr(host) -i hello.pump.ninja
+#        acl is_hello hdr(host) -i hello.pump.ninja
 
 # template SNI test
 > for i,c in ipairs(containers) do
@@ -59,7 +58,7 @@ frontend fe_http
 
 #       use_backend be_letsencrypt if app_letsencrypt
         use_backend be_test if is_test
-        use_backend be_hello if is_hello
+#        use_backend be_hello if is_hello
         #use_backend be_git if is_git
 	
 # template select backend
@@ -73,7 +72,7 @@ frontend fe_http
 #       mode http
 #       option httplog
 #       bind 0.0.0.0:443 ssl crt /etc/haproxy/ssl/
-#
+
 #       tcp-request inspect-delay 5s
 #       tcp-request content accept if { req.ssl_hello_type 1 }
 
@@ -91,9 +90,10 @@ backend be_test
 #        mode http
 #	server d_git 172.17.0.3:3000
 
-backend be_hello
-        mode http
-	http-request use-service lua.hello
+#backend be_hello
+#        mode http
+#	http-request use-service lua.hello
+
 
 # template backends
 > for i,c in ipairs(containers) do
